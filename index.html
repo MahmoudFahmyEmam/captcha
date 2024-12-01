@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Category-Based CAPTCHA</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    .captcha-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 150px);
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .captcha-grid button {
+      width: 150px;
+      height: 150px;
+      border: 2px solid #ccc;
+      background-size: cover;
+      background-position: center;
+      cursor: pointer;
+    }
+
+    .captcha-grid button.selected {
+      border-color: blue;
+    }
+
+    .submit-button {
+      padding: 10px 20px;
+      background-color: green;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .submit-button:hover {
+      background-color: darkgreen;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Category-Based CAPTCHA</h1>
+  <p id="instructions"></p>
+  <div id="captcha-grid" class="captcha-grid"></div>
+  <button class="submit-button" onclick="submitCaptcha()">Submit</button>
+  <script>
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    const IMAGE_FOLDER = "images";
+    const IMAGE_LABELS = {
+      "tree1.jpg": "tree",
+      "tree2.jpg": "tree",
+      "tree3.jpg": "tree",
+      "tree4.jpg": "tree",
+      "tree5.jpg": "tree",
+      "plane1.jpg": "plane",
+      "plane2.jpg": "plane",
+      "plane3.jpg": "plane",
+      "plane4.jpg": "plane",
+      "plane5.jpg": "plane",
+      "car1.jpg": "car",
+      "car2.jpg": "car",
+      "car3.jpg": "car",
+      "car4.jpg": "car",
+      "car5.jpg": "car",
+      "boat1.jpg": "boat",
+      "boat2.jpg": "boat",
+      "boat3.jpg": "boat",
+      "boat4.jpg": "boat",
+      "boat5.jpg": "boat",
+      "house1.jpg": "house",
+      "house2.jpg": "house",
+      "house3.jpg": "house",
+      "house4.jpg": "house",
+      "house5.jpg": "house",
+      "cat1.jpg": "cat",
+      "cat2.jpg": "cat",
+      "cat3.jpg": "cat",
+      "cat4.jpg": "cat",
+      "cat5.jpg": "cat",
+      "dog1.jpg": "dog",
+      "dog2.jpg": "dog",
+      "dog3.jpg": "dog",
+      "dog4.jpg": "dog",
+      "dog5.jpg": "dog",
+      "train1.jpg": "train",
+      "train2.jpg": "train",
+      "train3.jpg": "train",
+      "train4.jpg": "train",
+      "train5.jpg": "train",
+      "flower1.jpg": "flower",
+      "flower2.jpg": "flower",
+      "flower3.jpg": "flower",
+      "flower4.jpg": "flower",
+      "flower5.jpg": "flower"
+    };
+
+    const captchaImages = [];
+    const userSelection = new Set();
+    let targetCategory = "";
+
+    function generateCaptcha() {
+      const allImages = Object.entries(IMAGE_LABELS).map(([fileName, label]) => ({
+        path: `${IMAGE_FOLDER}/${fileName}`,
+        label
+      }));
+
+      // Filter images by the selected category
+      const categoryImages = allImages.filter(image => image.label === targetCategory);
+      const otherImages = allImages.filter(image => image.label !== targetCategory);
+
+      // Bias the selection: 2 or 3 images from the selected category
+      const biasedSelectionCount = Math.floor(Math.random() * 2) + 2; // Either 2 or 3 from the target category
+      const selectedFromCategory = getRandomItems(categoryImages, biasedSelectionCount);
+
+      // Select the remaining images from any categories (including the same one)
+      const remainingCount = 6 - selectedFromCategory.length;
+      const selectedFromOthers = getRandomItems(allImages.filter(image => !selectedFromCategory.includes(image)), remainingCount);
+
+      // Combine and shuffle the final set
+      const finalSelection = [...selectedFromCategory, ...selectedFromOthers];
+      shuffle(finalSelection);
+
+      return finalSelection;
+    }
+
+    function getRandomItems(array, count) {
+      const shuffled = shuffle(array);
+      return shuffled.slice(0, count);
+    }
+
+    function selectCategory() {
+      const uniqueLabels = Array.from(new Set(Object.values(IMAGE_LABELS)));
+      const shuffled = shuffle(uniqueLabels);
+      return shuffled[Math.floor(Math.random() * shuffled.length)];
+    }
+
+    function createCaptchaGrid(images) {
+      const grid = document.getElementById("captcha-grid");
+      grid.innerHTML = "";
+      images.forEach((image, index) => {
+        const button = document.createElement("button");
+        button.style.backgroundImage = `url('${image.path}')`;
+        button.addEventListener("click", () => toggleSelection(index, button));
+        grid.appendChild(button);
+      });
+    }
+
+    function toggleSelection(index, button) {
+      if (userSelection.has(index)) {
+        userSelection.delete(index);
+        button.classList.remove("selected");
+      } else {
+        userSelection.add(index);
+        button.classList.add("selected");
+      }
+    }
+
+    function submitCaptcha() {
+      const correctIndices = captchaImages
+        .map((img, index) => (img.label === targetCategory ? index : null))
+        .filter(index => index !== null);
+
+      const isCorrect =
+        correctIndices.length === userSelection.size &&
+        [...userSelection].every(index => correctIndices.includes(index));
+
+      if (isCorrect) {
+        alert("CAPTCHA passed!");
+      } else {
+        alert("CAPTCHA failed. Try again.");
+      }
+
+      startCaptcha();
+    }
+
+    function startCaptcha() {
+      userSelection.clear();
+      captchaImages.length = 0;
+      
+      // Select the category and use it for the current session
+      targetCategory = selectCategory();
+      
+      captchaImages.push(...generateCaptcha());
+
+      // Update instructions with the selected category
+      document.getElementById("instructions").textContent = `Select all images that show: ${targetCategory}.`;
+
+      createCaptchaGrid(captchaImages);
+    }
+
+    window.onload = startCaptcha;
+  </script>
+</body>
+
+</html>
+
